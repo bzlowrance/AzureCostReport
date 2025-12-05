@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Savings Report - Contoso Corporation</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0078d4;
+            --secondary-color: #50e6ff;
+            --success-color: #107c10;
+            --background-color: #f3f2f1;
+            --card-background: #ffffff;
+            --text-color: #323130;
+            --border-color: #edebe9;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary-color), #005a9e);
+            color: white;
+            padding: 40px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: var(--card-background);
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .card h3 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .card .value {
+            font-size: 2em;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        
+        .card .value.savings {
+            color: var(--success-color);
+        }
+        
+        .card .label {
+            color: #605e5c;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .section {
+            background: var(--card-background);
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .section h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            background-color: #f3f2f1;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .savings-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .breakdown-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .breakdown-item.ri { border-left-color: #0078d4; }
+        .breakdown-item.sp { border-left-color: #00b294; }
+        .breakdown-item.ahb { border-left-color: #8764b8; }
+        .breakdown-item.devtest { border-left-color: #ff8c00; }
+        .breakdown-item.negotiated { border-left-color: #107c10; }
+        
+        .breakdown-item h4 {
+            color: #323130;
+            margin-bottom: 8px;
+        }
+        
+        .breakdown-item .value {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: var(--success-color);
+        }
+        
+        .breakdown-item .label {
+            font-size: 0.85em;
+            color: #605e5c;
+            margin-top: 4px;
+        }
+        
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin: 20px 0;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #605e5c;
+            font-size: 0.9em;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, #107c10, #0b5c0b);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .highlight-box .big-number {
+            font-size: 3em;
+            font-weight: 700;
+        }
+        
+        .highlight-box .description {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        @media print {
+            body { background: white; }
+            .card, .section { box-shadow: none; border: 1px solid #ddd; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Azure Savings Realization Report</h1>
+            <div class="subtitle">Contoso Corporation</div>
+            <div class="subtitle">Period: September 01, 2025 - December 01, 2025</div>
+        </header>
+        
+        <!-- Executive Summary -->
+        <div class="highlight-box">
+            <div class="big-number">$847,234</div>
+            <div class="description">Total Savings Realized (31.2% vs Retail Pricing)</div>
+        </div>
+        
+        <div class="summary-cards">
+            <div class="card">
+                <h3>Retail (List) Cost</h3>
+                <div class="value">$2,714,850</div>
+                <div class="label">What you would pay at public pricing</div>
+            </div>
+            <div class="card">
+                <h3>Negotiated Cost</h3>
+                <div class="value">$2,443,365</div>
+                <div class="label">Your EA/MCA contract pricing</div>
+            </div>
+            <div class="card">
+                <h3>Your Effective Cost</h3>
+                <div class="value">$1,867,616</div>
+                <div class="label">What you actually paid</div>
+            </div>
+            <div class="card">
+                <h3>Total Savings</h3>
+                <div class="value savings">$847,234</div>
+                <div class="label">31.2% savings realized</div>
+            </div>
+        </div>
+        
+        <!-- Savings Breakdown -->
+        <div class="section">
+            <h2>Savings Breakdown by Category</h2>
+            <div class="savings-breakdown">
+                <div class="breakdown-item negotiated">
+                    <h4>Negotiated Discount</h4>
+                    <div class="value">$271,485</div>
+                    <div class="label">10% EA contract discount vs retail</div>
+                </div>
+                <div class="breakdown-item ri">
+                    <h4>Reserved Instances</h4>
+                    <div class="value">$312,450</div>
+                    <div class="label">62% average RI discount</div>
+                </div>
+                <div class="breakdown-item sp">
+                    <h4>Savings Plans</h4>
+                    <div class="value">$156,780</div>
+                    <div class="label">38% compute savings plan discount</div>
+                </div>
+                <div class="breakdown-item ahb">
+                    <h4>Azure Hybrid Benefit</h4>
+                    <div class="value">$78,519</div>
+                    <div class="label">Windows & SQL Server license savings</div>
+                </div>
+                <div class="breakdown-item devtest">
+                    <h4>Dev/Test Pricing</h4>
+                    <div class="value">$28,000</div>
+                    <div class="label">Dev/Test subscription discounts</div>
+                </div>
+            </div>
+            
+            <div id="savingsPieChart" class="chart-container"></div>
+        </div>
+        
+        <!-- Savings by Service -->
+        <div class="section">
+            <h2>Savings by Service Category</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Service</th>
+                        <th>Retail Cost</th>
+                        <th>Effective Cost</th>
+                        <th>Savings</th>
+                        <th>Savings %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Virtual Machines</td>
+                        <td>$1,245,000</td>
+                        <td>$785,000</td>
+                        <td>$460,000</td>
+                        <td>36.9%</td>
+                    </tr>
+                    <tr>
+                        <td>SQL Database</td>
+                        <td>$456,000</td>
+                        <td>$298,000</td>
+                        <td>$158,000</td>
+                        <td>34.6%</td>
+                    </tr>
+                    <tr>
+                        <td>Azure Kubernetes Service</td>
+                        <td>$312,000</td>
+                        <td>$234,000</td>
+                        <td>$78,000</td>
+                        <td>25.0%</td>
+                    </tr>
+                    <tr>
+                        <td>Storage Accounts</td>
+                        <td>$198,500</td>
+                        <td>$156,200</td>
+                        <td>$42,300</td>
+                        <td>21.3%</td>
+                    </tr>
+                    <tr>
+                        <td>Azure App Service</td>
+                        <td>$156,000</td>
+                        <td>$112,000</td>
+                        <td>$44,000</td>
+                        <td>28.2%</td>
+                    </tr>
+                    <tr>
+                        <td>Azure Cosmos DB</td>
+                        <td>$124,350</td>
+                        <td>$98,416</td>
+                        <td>$25,934</td>
+                        <td>20.9%</td>
+                    </tr>
+                    <tr>
+                        <td>Networking</td>
+                        <td>$98,000</td>
+                        <td>$78,000</td>
+                        <td>$20,000</td>
+                        <td>20.4%</td>
+                    </tr>
+                    <tr>
+                        <td>Azure Functions</td>
+                        <td>$65,000</td>
+                        <td>$52,000</td>
+                        <td>$13,000</td>
+                        <td>20.0%</td>
+                    </tr>
+                    <tr>
+                        <td>Other Services</td>
+                        <td>$60,000</td>
+                        <td>$54,000</td>
+                        <td>$6,000</td>
+                        <td>10.0%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Monthly Trend -->
+        <div class="section">
+            <h2>Monthly Savings Trend</h2>
+            <div id="monthlyTrendChart" class="chart-container"></div>
+        </div>
+        
+        <!-- Commitment Discount Details -->
+        <div class="section">
+            <h2>Commitment Discount Details</h2>
+            <h3 style="margin: 20px 0 10px 0; color: #0078d4;">Reserved Instances</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Reservation Name</th>
+                        <th>Service</th>
+                        <th>Utilization</th>
+                        <th>Savings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>RI-Prod-VMs-EastUS</td>
+                        <td>Virtual Machines</td>
+                        <td>94.2%</td>
+                        <td>$156,000</td>
+                    </tr>
+                    <tr>
+                        <td>RI-SQL-Premium</td>
+                        <td>SQL Database</td>
+                        <td>88.5%</td>
+                        <td>$89,450</td>
+                    </tr>
+                    <tr>
+                        <td>RI-Prod-VMs-WestUS</td>
+                        <td>Virtual Machines</td>
+                        <td>91.3%</td>
+                        <td>$67,000</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3 style="margin: 30px 0 10px 0; color: #00b294;">Savings Plans</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Savings Plan</th>
+                        <th>Commitment</th>
+                        <th>Utilization</th>
+                        <th>Savings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>SP-Compute-3Year</td>
+                        <td>$50,000/month</td>
+                        <td>96.8%</td>
+                        <td>$98,780</td>
+                    </tr>
+                    <tr>
+                        <td>SP-Compute-1Year</td>
+                        <td>$25,000/month</td>
+                        <td>92.1%</td>
+                        <td>$58,000</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Top Savings Resources -->
+        <div class="section">
+            <h2>Top Resources by Savings</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Resource</th>
+                        <th>Service</th>
+                        <th>Savings Category</th>
+                        <th>Savings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>prod-sql-primary</td>
+                        <td>SQL Database</td>
+                        <td>Reserved Instance</td>
+                        <td>$45,600</td>
+                    </tr>
+                    <tr>
+                        <td>prod-aks-cluster-01</td>
+                        <td>Azure Kubernetes Service</td>
+                        <td>Savings Plan</td>
+                        <td>$38,200</td>
+                    </tr>
+                    <tr>
+                        <td>prod-vm-app-server-01</td>
+                        <td>Virtual Machines</td>
+                        <td>RI + AHB</td>
+                        <td>$32,100</td>
+                    </tr>
+                    <tr>
+                        <td>prod-vm-web-cluster</td>
+                        <td>Virtual Machines</td>
+                        <td>Reserved Instance</td>
+                        <td>$28,900</td>
+                    </tr>
+                    <tr>
+                        <td>prod-cosmos-orders</td>
+                        <td>Azure Cosmos DB</td>
+                        <td>Negotiated Discount</td>
+                        <td>$18,450</td>
+                    </tr>
+                    <tr>
+                        <td>dev-vm-pool</td>
+                        <td>Virtual Machines</td>
+                        <td>Dev/Test Pricing</td>
+                        <td>$15,200</td>
+                    </tr>
+                    <tr>
+                        <td>prod-sql-analytics</td>
+                        <td>SQL Database</td>
+                        <td>RI + AHB</td>
+                        <td>$14,800</td>
+                    </tr>
+                    <tr>
+                        <td>prod-app-service-plan</td>
+                        <td>Azure App Service</td>
+                        <td>Savings Plan</td>
+                        <td>$12,600</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Savings by Subscription -->
+        <div class="section">
+            <h2>Savings by Subscription</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Subscription</th>
+                        <th>Retail Cost</th>
+                        <th>Effective Cost</th>
+                        <th>Savings</th>
+                        <th>Savings %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Contoso-Production</td>
+                        <td>$1,856,000</td>
+                        <td>$1,245,000</td>
+                        <td>$611,000</td>
+                        <td>32.9%</td>
+                    </tr>
+                    <tr>
+                        <td>Contoso-Staging</td>
+                        <td>$412,000</td>
+                        <td>$298,000</td>
+                        <td>$114,000</td>
+                        <td>27.7%</td>
+                    </tr>
+                    <tr>
+                        <td>Contoso-Development (Dev/Test)</td>
+                        <td>$246,850</td>
+                        <td>$174,616</td>
+                        <td>$72,234</td>
+                        <td>29.3%</td>
+                    </tr>
+                    <tr>
+                        <td>Contoso-Shared-Services</td>
+                        <td>$200,000</td>
+                        <td>$150,000</td>
+                        <td>$50,000</td>
+                        <td>25.0%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <footer>
+            <p>Generated on December 04, 2025 at 14:32 | Azure Savings Realization Report Tool v1.0</p>
+            <p style="margin-top: 10px; font-size: 0.85em;">
+                This report demonstrates realized savings from your Azure optimization strategies including 
+                EA/MCA negotiated pricing, Reserved Instances, Savings Plans, Azure Hybrid Benefit, and Dev/Test pricing.
+            </p>
+        </footer>
+    </div>
+    
+    <script>
+        // Savings Pie Chart
+        var pieData = [{
+            values: [271485, 312450, 156780, 78519, 28000],
+            labels: ['Negotiated Discount', 'Reserved Instances', 'Savings Plans', 'Azure Hybrid Benefit', 'Dev/Test Pricing'],
+            type: 'pie',
+            hole: 0.4,
+            marker: {
+                colors: ['#107c10', '#0078d4', '#00b294', '#8764b8', '#ff8c00']
+            },
+            textinfo: 'label+percent',
+            textposition: 'outside'
+        }];
+        
+        var pieLayout = {
+            title: 'Savings Distribution by Category',
+            showlegend: true,
+            legend: { orientation: 'h', y: -0.1 },
+            margin: { t: 60, b: 80 }
+        };
+        
+        Plotly.newPlot('savingsPieChart', pieData, pieLayout, {responsive: true});
+        
+        // Monthly Trend Chart
+        var monthlyData = [
+            {
+                x: ['2025-09', '2025-10', '2025-11'],
+                y: [892450, 915200, 907200],
+                name: 'Retail Cost',
+                type: 'bar',
+                marker: { color: '#d13438' }
+            },
+            {
+                x: ['2025-09', '2025-10', '2025-11'],
+                y: [612000, 635616, 620000],
+                name: 'Effective Cost',
+                type: 'bar',
+                marker: { color: '#0078d4' }
+            },
+            {
+                x: ['2025-09', '2025-10', '2025-11'],
+                y: [280450, 279584, 287200],
+                name: 'Savings',
+                type: 'scatter',
+                mode: 'lines+markers',
+                yaxis: 'y2',
+                marker: { color: '#107c10', size: 10 },
+                line: { color: '#107c10', width: 3 }
+            }
+        ];
+        
+        var monthlyLayout = {
+            title: 'Monthly Cost and Savings Trend',
+            barmode: 'group',
+            yaxis: { title: 'Cost (USD)', tickformat: '$,.0f' },
+            yaxis2: {
+                title: 'Savings (USD)',
+                overlaying: 'y',
+                side: 'right',
+                tickformat: '$,.0f'
+            },
+            legend: { orientation: 'h', y: -0.15 },
+            margin: { t: 60, b: 80 }
+        };
+        
+        Plotly.newPlot('monthlyTrendChart', monthlyData, monthlyLayout, {responsive: true});
+    </script>
+</body>
+</html>

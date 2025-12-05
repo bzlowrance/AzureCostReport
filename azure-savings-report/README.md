@@ -127,6 +127,15 @@ flowchart TB
 - Monthly Trend Charts
 - Top Resources by Savings
 
+## Sample Reports
+
+Example reports are available in the `examples/` directory:
+
+- **HTML Report** (`sample_report_contoso_20251204.html`): Interactive report with Plotly charts for savings distribution pie chart and monthly trend bar chart
+- **Excel Report** (`sample_report_contoso_20251204.xlsx`): Excel workbook with multiple sheets including a Charts sheet with native Excel pie and bar charts
+
+Both reports demonstrate the same sample data for "Contoso Corporation" showing $847,234 in total savings (31.2% savings rate).
+
 ## Sample Output
 
 ```
@@ -163,8 +172,13 @@ azure-savings-report/
 │   └── kql_queries.py           # Pre-built KQL queries
 ├── dashboards/
 │   └── adx_dashboard.kql        # ADX dashboard queries
+├── examples/                    # Sample output files
+│   ├── sample_report_contoso_20251204.html   # HTML report with interactive charts
+│   ├── sample_report_contoso_20251204.xlsx   # Excel report with Charts sheet
+│   └── generate_sample_*.py                   # Scripts to regenerate samples
 └── docs/
     ├── ARCHITECTURE.md          # Technical architecture
+    ├── API_REFERENCE.md         # API documentation
     └── USER_GUIDE.md            # Detailed usage guide
 ```
 

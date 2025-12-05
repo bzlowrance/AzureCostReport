@@ -433,7 +433,14 @@ class ReportGenerator:
         """
     
     def generate_excel_report(self, report: SavingsReport) -> str:
-        """Generate an Excel report"""
+        """Generate an Excel report with charts"""
+        from openpyxl.chart import PieChart, BarChart, LineChart, Reference
+        from openpyxl.chart.label import DataLabelList
+        from openpyxl.chart.series import DataPoint
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils.dataframe import dataframe_to_rows
+        from openpyxl.drawing.fill import PatternFillProperties, ColorChoice
+        
         filename = f"savings_report_{report.customer_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
         filepath = self.output_dir / filename
         
@@ -491,5 +498,238 @@ class ReportGenerator:
             
             # Top Resources
             report.top_savings_resources.to_excel(writer, sheet_name='Top Resources', index=False)
+            
+            # Create Charts sheet with data and visualizations
+            self._create_charts_sheet(writer, report)
         
         return str(filepath)
+    
+    def _create_charts_sheet(self, writer, report: SavingsReport):
+        """Create a Charts sheet with visualizations similar to HTML report"""
+        from openpyxl.chart import PieChart, BarChart, Reference
+        from openpyxl.chart.label import DataLabelList
+        from openpyxl.chart.series import DataPoint
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+        
+        workbook = writer.book
+        ws = workbook.create_sheet('Charts')
+        
+        # Define styles
+        header_font = Font(bold=True, size=14, color="FFFFFF")
+        header_fill = PatternFill(start_color="0078D4", end_color="0078D4", fill_type="solid")
+        title_font = Font(bold=True, size=16, color="0078D4")
+        money_font = Font(bold=True, size=12)
+        savings_font = Font(bold=True, size=14, color="107C10")
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # ============ EXECUTIVE SUMMARY SECTION ============
+        ws['A1'] = 'AZURE SAVINGS REALIZATION REPORT'
+        ws['A1'].font = Font(bold=True, size=20, color="0078D4")
+        ws.merge_cells('A1:F1')
+        
+        ws['A2'] = report.customer_name
+        ws['A2'].font = Font(size=14)
+        
+        ws['A3'] = f"Period: {report.report_period_start.strftime('%B %d, %Y')} - {report.report_period_end.strftime('%B %d, %Y')}"
+        ws['A3'].font = Font(size=12, italic=True)
+        
+        # Summary Cards Row
+        row = 5
+        cards = [
+            ('Retail (List) Cost', report.total_retail_cost, 'D13438'),
+            ('Negotiated Cost', report.total_negotiated_cost, '0078D4'),
+            ('Effective Cost', report.total_effective_cost, '0078D4'),
+            ('Total Savings', report.total_savings, '107C10'),
+        ]
+        
+        for col_idx, (label, value, color) in enumerate(cards, start=1):
+            col = get_column_letter(col_idx * 2 - 1)
+            ws[f'{col}{row}'] = label
+            ws[f'{col}{row}'].font = Font(bold=True, size=10)
+            ws[f'{col}{row}'].alignment = Alignment(horizontal='center')
+            
+            ws[f'{col}{row+1}'] = f"${value:,.0f}"
+            ws[f'{col}{row+1}'].font = Font(bold=True, size=14, color=color)
+            ws[f'{col}{row+1}'].alignment = Alignment(horizontal='center')
+        
+        # Savings percentage
+        ws['I5'] = 'Savings %'
+        ws['I5'].font = Font(bold=True, size=10)
+        ws['I5'].alignment = Alignment(horizontal='center')
+        ws['I6'] = f"{report.total_savings_percentage:.1f}%"
+        ws['I6'].font = Font(bold=True, size=14, color="107C10")
+        ws['I6'].alignment = Alignment(horizontal='center')
+        
+        # ============ SAVINGS BY CATEGORY (PIE CHART DATA) ============
+        row = 9
+        ws[f'A{row}'] = 'SAVINGS BY CATEGORY'
+        ws[f'A{row}'].font = title_font
+        
+        # Category data for pie chart
+        categories = [
+            ('Negotiated Discount', report.negotiated_discount_savings.total_savings, '107C10'),
+            ('Reserved Instances', report.reserved_instance_savings.total_savings, '0078D4'),
+            ('Savings Plans', report.savings_plan_savings.total_savings, '00B294'),
+            ('Azure Hybrid Benefit', report.ahb_savings.total_savings, '8764B8'),
+            ('Dev/Test Pricing', report.devtest_savings.total_savings, 'FF8C00'),
+        ]
+        
+        # Write category data
+        row = 11
+        ws[f'A{row}'] = 'Category'
+        ws[f'B{row}'] = 'Savings'
+        ws[f'C{row}'] = 'Percentage'
+        ws[f'A{row}'].font = header_font
+        ws[f'B{row}'].font = header_font
+        ws[f'C{row}'].font = header_font
+        ws[f'A{row}'].fill = header_fill
+        ws[f'B{row}'].fill = header_fill
+        ws[f'C{row}'].fill = header_fill
+        
+        total_cat_savings = sum(c[1] for c in categories)
+        for i, (name, value, color) in enumerate(categories, start=1):
+            r = row + i
+            ws[f'A{r}'] = name
+            ws[f'B{r}'] = value
+            pct = (value / total_cat_savings * 100) if total_cat_savings > 0 else 0
+            ws[f'C{r}'] = f"{pct:.1f}%"
+            ws[f'A{r}'].border = thin_border
+            ws[f'B{r}'].border = thin_border
+            ws[f'C{r}'].border = thin_border
+            ws[f'B{r}'].number_format = '$#,##0'
+        
+        # Create Pie Chart
+        pie = PieChart()
+        pie.title = "Savings Distribution by Category"
+        labels = Reference(ws, min_col=1, min_row=row+1, max_row=row+5)
+        data = Reference(ws, min_col=2, min_row=row, max_row=row+5)
+        pie.add_data(data, titles_from_data=True)
+        pie.set_categories(labels)
+        pie.width = 15
+        pie.height = 10
+        
+        # Set custom colors for pie slices
+        colors = ['107C10', '0078D4', '00B294', '8764B8', 'FF8C00']
+        for i, color in enumerate(colors):
+            pt = DataPoint(idx=i)
+            pt.graphicalProperties.solidFill = color
+            pie.series[0].data_points.append(pt)
+        
+        pie.dataLabels = DataLabelList()
+        pie.dataLabels.showPercent = True
+        pie.dataLabels.showCatName = True
+        pie.dataLabels.showVal = False
+        
+        ws.add_chart(pie, "E10")
+        
+        # ============ SAVINGS BY SERVICE (BAR CHART) ============
+        row = 23
+        ws[f'A{row}'] = 'TOP SERVICES BY SAVINGS'
+        ws[f'A{row}'].font = title_font
+        
+        # Write service data (top 10)
+        row = 25
+        ws[f'A{row}'] = 'Service'
+        ws[f'B{row}'] = 'Retail Cost'
+        ws[f'C{row}'] = 'Effective Cost'
+        ws[f'D{row}'] = 'Savings'
+        for col in ['A', 'B', 'C', 'D']:
+            ws[f'{col}{row}'].font = header_font
+            ws[f'{col}{row}'].fill = header_fill
+        
+        top_services = report.savings_by_service.head(10)
+        for i, (_, svc_row) in enumerate(top_services.iterrows(), start=1):
+            r = row + i
+            ws[f'A{r}'] = svc_row.get('ServiceCategory', 'Unknown')
+            ws[f'B{r}'] = svc_row.get('ListCost', 0)
+            ws[f'C{r}'] = svc_row.get('EffectiveCost', 0)
+            ws[f'D{r}'] = svc_row.get('TotalSavings', 0)
+            for col in ['A', 'B', 'C', 'D']:
+                ws[f'{col}{r}'].border = thin_border
+            ws[f'B{r}'].number_format = '$#,##0'
+            ws[f'C{r}'].number_format = '$#,##0'
+            ws[f'D{r}'].number_format = '$#,##0'
+        
+        # Create Bar Chart for services
+        bar = BarChart()
+        bar.type = "col"
+        bar.title = "Savings by Service"
+        bar.y_axis.title = "Amount ($)"
+        bar.x_axis.title = "Service"
+        bar.width = 18
+        bar.height = 10
+        
+        data_end_row = row + min(len(top_services), 10)
+        data = Reference(ws, min_col=4, min_row=row, max_row=data_end_row)
+        cats = Reference(ws, min_col=1, min_row=row+1, max_row=data_end_row)
+        bar.add_data(data, titles_from_data=True)
+        bar.set_categories(cats)
+        bar.shape = 4
+        bar.series[0].graphicalProperties.solidFill = "107C10"
+        
+        ws.add_chart(bar, "F24")
+        
+        # ============ MONTHLY TREND (IF DATA EXISTS) ============
+        if not report.monthly_trend.empty:
+            row = 40
+            ws[f'A{row}'] = 'MONTHLY TREND'
+            ws[f'A{row}'].font = title_font
+            
+            # Write monthly data
+            row = 42
+            ws[f'A{row}'] = 'Month'
+            ws[f'B{row}'] = 'Retail Cost'
+            ws[f'C{row}'] = 'Effective Cost'
+            ws[f'D{row}'] = 'Savings'
+            for col in ['A', 'B', 'C', 'D']:
+                ws[f'{col}{row}'].font = header_font
+                ws[f'{col}{row}'].fill = header_fill
+            
+            for i, (_, m_row) in enumerate(report.monthly_trend.iterrows(), start=1):
+                r = row + i
+                ws[f'A{r}'] = m_row.get('Month', '')
+                ws[f'B{r}'] = m_row.get('ListCost', 0)
+                ws[f'C{r}'] = m_row.get('EffectiveCost', 0)
+                ws[f'D{r}'] = m_row.get('TotalSavings', 0)
+                for col in ['A', 'B', 'C', 'D']:
+                    ws[f'{col}{r}'].border = thin_border
+                ws[f'B{r}'].number_format = '$#,##0'
+                ws[f'C{r}'].number_format = '$#,##0'
+                ws[f'D{r}'].number_format = '$#,##0'
+            
+            # Create combined bar + line chart for monthly trend
+            monthly_bar = BarChart()
+            monthly_bar.type = "col"
+            monthly_bar.title = "Monthly Cost and Savings Trend"
+            monthly_bar.y_axis.title = "Cost ($)"
+            monthly_bar.width = 18
+            monthly_bar.height = 10
+            
+            data_end_row = row + len(report.monthly_trend)
+            
+            # Retail and Effective cost bars
+            retail_data = Reference(ws, min_col=2, min_row=row, max_row=data_end_row)
+            effective_data = Reference(ws, min_col=3, min_row=row, max_row=data_end_row)
+            cats = Reference(ws, min_col=1, min_row=row+1, max_row=data_end_row)
+            
+            monthly_bar.add_data(retail_data, titles_from_data=True)
+            monthly_bar.add_data(effective_data, titles_from_data=True)
+            monthly_bar.set_categories(cats)
+            
+            monthly_bar.series[0].graphicalProperties.solidFill = "D13438"
+            monthly_bar.series[1].graphicalProperties.solidFill = "0078D4"
+            
+            ws.add_chart(monthly_bar, "F41")
+        
+        # ============ ADJUST COLUMN WIDTHS ============
+        ws.column_dimensions['A'].width = 25
+        ws.column_dimensions['B'].width = 15
+        ws.column_dimensions['C'].width = 15
+        ws.column_dimensions['D'].width = 15
+        ws.column_dimensions['E'].width = 15
