@@ -1,0 +1,75 @@
+# Azure Savings Report Configuration
+# Copy this file to config.yaml and update with your settings
+
+# Data source configuration
+data_source:
+  # Options: "adx", "storage", "api"
+  type: "adx"
+  
+  # Azure Data Explorer settings (if type: adx)
+  adx:
+    cluster_uri: "https://your-cluster.region.kusto.windows.net"
+    database: "finopshub"  # or your database name
+    # Tables follow FinOps Hub schema
+    costs_table: "Costs"
+    prices_table: "Prices"
+  
+  # Storage Account settings (if type: storage)
+  storage:
+    account_name: "your-storage-account"
+    container_name: "exports"
+    # Path pattern for FOCUS exports
+    export_path: "focuscost/{scope-id}"
+  
+  # Direct API settings (if type: api)
+  # Note: Only recommended for smaller datasets
+  api:
+    # Scope for Cost Management API
+    # e.g., "/subscriptions/{sub-id}" or "/providers/Microsoft.Billing/billingAccounts/{billing-account-id}"
+    scope: "/subscriptions/your-subscription-id"
+
+# Authentication
+auth:
+  # Options: "cli", "managed_identity", "service_principal"
+  method: "cli"
+  
+  # Service Principal settings (if method: service_principal)
+  service_principal:
+    tenant_id: ""
+    client_id: ""
+    # Set AZURE_CLIENT_SECRET environment variable for the secret
+
+# Report settings
+report:
+  # Customer name for the report
+  customer_name: "Customer Name"
+  
+  # Number of months to analyze
+  months: 3
+  
+  # Output directory
+  output_dir: "./reports"
+  
+  # Output formats (html, excel, pdf)
+  formats:
+    - html
+    - excel
+  
+  # Currency
+  currency: "USD"
+  
+  # Include sections
+  sections:
+    executive_summary: true
+    negotiated_discounts: true
+    commitment_discounts: true  # RI and Savings Plans
+    license_optimization: true  # AHB and Dev/Test
+    recommendations: true       # Azure Advisor
+
+# Retail Prices API (for comparison)
+retail_prices:
+  # API endpoint
+  api_url: "https://prices.azure.com/api/retail/prices"
+  # Cache prices locally to reduce API calls
+  cache_enabled: true
+  cache_ttl_hours: 24

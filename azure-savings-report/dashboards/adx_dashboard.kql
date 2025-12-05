@@ -1,0 +1,216 @@
+# Azure Savings Report - ADX Dashboard
+# Import this in Azure Data Explorer to create a dashboard
+
+## Dashboard: Azure Savings Realization
+
+### Page 1: Executive Summary
+
+```kql
+// Total Savings KPI
+let StartDate = ago(90d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| summarize 
+    RetailCost = sum(ListCost),
+    EffectiveCost = sum(EffectiveCost)
+| extend 
+    TotalSavings = RetailCost - EffectiveCost,
+    SavingsPercentage = round((RetailCost - EffectiveCost) / RetailCost * 100, 1)
+| project 
+    strcat("$", format_number(TotalSavings, "N0")),
+    strcat(SavingsPercentage, "% saved vs retail")
+```
+
+```kql
+// Savings by Category - Pie Chart
+let StartDate = ago(90d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| extend 
+    SavingsCategory = case(
+        PricingCategory == "Committed" and CommitmentDiscountCategory == "Usage", "Reserved Instances",
+        PricingCategory == "Committed" and CommitmentDiscountCategory == "Spend", "Savings Plans",
+        x_SkuDetails has_any ("AHB", "HybridBenefit"), "Azure Hybrid Benefit",
+        SubAccountName has_any ("DevTest", "Dev/Test"), "Dev/Test Pricing",
+        "Negotiated Discount"
+    )
+| summarize 
+    Savings = sum(ListCost) - sum(EffectiveCost)
+    by SavingsCategory
+| where Savings > 0
+| render piechart with (title="Savings by Category")
+```
+
+```kql
+// Monthly Trend - Area Chart
+let StartDate = ago(180d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| summarize 
+    RetailCost = sum(ListCost),
+    EffectiveCost = sum(EffectiveCost)
+    by Month = startofmonth(ChargePeriodStart)
+| extend 
+    Savings = RetailCost - EffectiveCost
+| project Month, RetailCost, EffectiveCost, Savings
+| render areachart with (title="Monthly Cost and Savings Trend", kind=stacked)
+```
+
+### Page 2: Commitment Discounts (RI & SP)
+
+```kql
+// Reserved Instance Savings
+let StartDate = ago(90d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| where PricingCategory == "Committed" and CommitmentDiscountCategory == "Usage"
+| summarize 
+    RetailCost = sum(ListCost),
+    EffectiveCost = sum(EffectiveCost)
+    by CommitmentDiscountName, ServiceCategory
+| extend 
+    Savings = RetailCost - EffectiveCost,
+    SavingsPercentage = round((RetailCost - EffectiveCost) / RetailCost * 100, 1)
+| project 
+    Reservation = CommitmentDiscountName,
+    Service = ServiceCategory,
+    Savings = strcat("$", format_number(Savings, "N0")),
+    SavingsPercentage = strcat(SavingsPercentage, "%")
+| order by Savings desc
+```
+
+```kql
+// Savings Plan Savings
+let StartDate = ago(90d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| where PricingCategory == "Committed" and CommitmentDiscountCategory == "Spend"
+| summarize 
+    RetailCost = sum(ListCost),
+    EffectiveCost = sum(EffectiveCost)
+    by CommitmentDiscountName, ServiceCategory
+| extend 
+    Savings = RetailCost - EffectiveCost,
+    SavingsPercentage = round((RetailCost - EffectiveCost) / RetailCost * 100, 1)
+| project 
+    SavingsPlan = CommitmentDiscountName,
+    Service = ServiceCategory,
+    Savings = strcat("$", format_number(Savings, "N0")),
+    SavingsPercentage = strcat(SavingsPercentage, "%")
+| order by Savings desc
+```
+
+### Page 3: License Optimization
+
+```kql
+// Azure Hybrid Benefit Usage
+let StartDate = ago(90d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| where x_SkuDetails has_any ("AHB", "HybridBenefit", "Hybrid Benefit")
+| extend 
+    LicenseType = case(
+        x_SkuMeterName has "SQL", "SQL Server",
+        x_SkuMeterName has "Windows", "Windows Server",
+        "Other"
+    )
+| summarize 
+    RetailCost = sum(ListCost),
+    EffectiveCost = sum(EffectiveCost),
+    Resources = dcount(ResourceId)
+    by LicenseType
+| extend 
+    Savings = RetailCost - EffectiveCost
+| project LicenseType, Resources, 
+    Savings = strcat("$", format_number(Savings, "N0"))
+| render columnchart with (title="AHB Savings by License Type")
+```
+
+```kql
+// Dev/Test Subscription Savings
+let StartDate = ago(90d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| where SubAccountName has_any ("DevTest", "Dev/Test", "Dev-Test", "Development")
+| summarize 
+    RetailCost = sum(ListCost),
+    EffectiveCost = sum(EffectiveCost)
+    by SubAccountName
+| extend 
+    Savings = RetailCost - EffectiveCost,
+    SavingsPercentage = round((RetailCost - EffectiveCost) / RetailCost * 100, 1)
+| order by Savings desc
+```
+
+### Page 4: Service Analysis
+
+```kql
+// Top Services by Savings
+let StartDate = ago(90d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| summarize 
+    RetailCost = sum(ListCost),
+    EffectiveCost = sum(EffectiveCost)
+    by ServiceCategory
+| extend 
+    Savings = RetailCost - EffectiveCost,
+    SavingsPercentage = round((RetailCost - EffectiveCost) / RetailCost * 100, 1)
+| where Savings > 0
+| order by Savings desc
+| take 15
+| render barchart with (title="Savings by Service Category")
+```
+
+```kql
+// Price Discount Analysis
+let StartDate = ago(90d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| where ListUnitPrice > 0 and ContractedUnitPrice > 0
+| summarize 
+    AvgListPrice = avg(ListUnitPrice),
+    AvgContractPrice = avg(ContractedUnitPrice),
+    TotalSpend = sum(EffectiveCost)
+    by ServiceCategory
+| extend 
+    DiscountPercentage = round((AvgListPrice - AvgContractPrice) / AvgListPrice * 100, 1)
+| where DiscountPercentage > 0
+| order by TotalSpend desc
+| take 20
+| project ServiceCategory, DiscountPercentage, 
+    TotalSpend = strcat("$", format_number(TotalSpend, "N0"))
+```
+
+### Page 5: Subscription Breakdown
+
+```kql
+// Savings by Subscription
+let StartDate = ago(90d);
+let EndDate = now();
+Costs
+| where ChargePeriodStart >= StartDate and ChargePeriodEnd <= EndDate
+| summarize 
+    RetailCost = sum(ListCost),
+    EffectiveCost = sum(EffectiveCost)
+    by SubAccountName
+| extend 
+    Savings = RetailCost - EffectiveCost,
+    SavingsPercentage = round((RetailCost - EffectiveCost) / RetailCost * 100, 1)
+| order by Savings desc
+| project 
+    Subscription = SubAccountName,
+    RetailCost = strcat("$", format_number(RetailCost, "N0")),
+    EffectiveCost = strcat("$", format_number(EffectiveCost, "N0")),
+    Savings = strcat("$", format_number(Savings, "N0")),
+    SavingsPercentage = strcat(SavingsPercentage, "%")
+```
